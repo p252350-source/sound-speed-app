@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音速測定アプリ</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        .content-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .left-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .graph-section {
+            flex: 1;
+            margin-top: 20px;
+        }
+
+        #chartContainer {
+            position: relative;
+            height: 300px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .start-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .start-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .reset-btn {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .reset-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: center;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status.ready {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status.listening {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .status.detecting {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .results {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .result-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .result-label {
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            color: #333;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .result-value.unit {
+            font-size: 18px;
+        }
+
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            color: #1565c0;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #999;
+            margin-right: 8px;
+            animation: none;
+        }
+
+        .indicator.active {
+            background: #4caf50;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .mic-icon {
+            display: inline-block;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔊 音速測定アプリ</h1>
+        <p class="subtitle">拍手の反射音から音速を計測します</p>
+
+        <div class="content-wrapper">
+            <div class="left-section">
+                <div class="input-group">
+                    <label for="distance">壁までの距離 (メートル)</label>
+                    <input 
+                        type="number" 
+                        id="distance" 
+                        placeholder="例：5" 
+                        min="0.5" 
+                        max="100" 
+                        step="0.1"
+                        value="5"
+                    >
+                </div>
+
+                <div class="button-group">
+                    <button class="start-btn" id="startBtn">📍 測定開始</button>
+                    <button class="reset-btn" id="resetBtn">リセット</button>
+                </div>
+
+                <div class="status ready" id="status">
+                    <span class="indicator" id="indicator"></span>
+                    <span id="statusText">準備完了 - 壁までの距離を入力して測定開始してください</span>
+                </div>
+
+                <div class="results" id="results">
+                    <div class="result-item">
+                        <div class="result-label">往復時間</div>
+                        <div class="result-value"><span id="roundTripTime">0.00</span> <span class="unit">秒</span></div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">最初の音を検出</div>
+                        <div class="result-value"><span id="firstSoundTime">-</span></div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">返ってきた音を検出</div>
+                        <div class="result-value"><span id="echoSoundTime">-</span></div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">計測音速</div>
+                        <div class="result-value"><span id="soundSpeed">0</span> <span class="unit">m/s</span></div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">理論値との差</div>
+                        <div class="result-value"><span id="difference">-</span></div>
+                    </div>
+                </div>
+
+                <div class="info" id="info" style="display: none;">
+                    ℹ️ <strong>計測方法：</strong> 壁までの距離 × 2 ÷ 往復時間 = 音速
+                </div>
+            </div>
+
+            <div class="graph-section">
+                <h3 style="color: #333; margin-bottom: 10px; font-size: 16px;">📊 音の大きさ（リアルタイム）</h3>
+                <div id="chartContainer">
+                    <canvas id="soundChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let isListening = false;
+        let firstSoundDetected = false;
+        let firstSoundTime = null;
+        let echoPeakTime = null;
+        const threshold = 30;
+        const silenceThreshold = 50;
+
+        let chart = null;
+        let chartData = [];
+        let graphStartTime = null;
+
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const distanceInput = document.getElementById('distance');
+        const status = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const indicator = document.getElementById('indicator');
+        const results = document.getElementById('results');
+        const info = document.getElementById('info');
+
+        startBtn.addEventListener('click', startMeasurement);
+        resetBtn.addEventListener('click', resetMeasurement);
+
+        function initChart() {
+            const ctx = document.getElementById('soundChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '音の大きさ',
+                            data: [],
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointBackgroundColor: '#667eea',
+                        },
+                        {
+                            label: '最初の音',
+                            data: [],
+                            type: 'scatter',
+                            pointRadius: 8,
+                            pointBackgroundColor: '#4caf50',
+                            pointBorderColor: '#2e7d32',
+                            pointBorderWidth: 2,
+                            showLine: false,
+                        },
+                        {
+                            label: '返ってきた音',
+                            data: [],
+                            type: 'scatter',
+                            pointRadius: 8,
+                            pointBackgroundColor: '#ff9800',
+                            pointBorderColor: '#e65100',
+                            pointBorderWidth: 2,
+                            showLine: false,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '経過時間 (秒)',
+                                color: '#666',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            min: 0,
+                            max: 10,
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '音量レベル',
+                                color: '#666',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            min: 0,
+                            max: 255,
+                            beginAtZero: true,
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 12
+                                },
+                                padding: 15,
+                                usePointStyle: true,
+                            }
+                        },
+                        filler: {
+                            propagate: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartData(timeElapsed, volumeLevel) {
+            if (!chart) return;
+
+            const timeInSeconds = (timeElapsed / 1000).toFixed(2);
+            
+            chart.data.labels.push(timeInSeconds);
+            chart.data.datasets[0].data.push({
+                x: timeInSeconds,
+                y: volumeLevel
+            });
+
+            if (chart.data.labels.length > 150) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+
+            chart.options.scales.x.max = Math.ceil(timeElapsed / 1000) + 1;
+            chart.update('none');
+        }
+
+        function addMarkerToChart(time, isFirstSound) {
+            if (!chart) return;
+
+            const timeInSeconds = (time / 1000).toFixed(2);
+            const datasetIndex = isFirstSound ? 1 : 2;
+            
+            chart.data.datasets[datasetIndex].data.push({
+                x: timeInSeconds,
+                y: 100
+            });
+
+            chart.update('none');
+        }
+
+        async function startMeasurement() {
+            const distance = parseFloat(distanceInput.value);
+            
+            if (!distance || distance <= 0) {
+                showStatus('エラー: 有効な距離を入力してください', 'error');
+                return;
+            }
+
+            try {
+                startBtn.disabled = true;
+                showStatus('🎤 マイクを初期化中...', 'listening');
+
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 2048;
+                    const bufferLength = analyser.frequencyBinCount;
+                    dataArray = new Uint8Array(bufferLength);
+                }
+
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                showStatus('👂 リスニング中... 拍手してください', 'listening');
+                indicator.classList.add('active');
+
+                firstSoundDetected = false;
+                firstSoundTime = null;
+                echoPeakTime = null;
+                chartData = [];
+                graphStartTime = null;
+
+                initChart();
+                listenForSounds(distance);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('エラー: マイクへのアクセスが必要です', 'error');
+                startBtn.disabled = false;
+            }
+        }
+
+        function listenForSounds(distance) {
+            const startTime = Date.now();
+            graphStartTime = startTime;
+            const maxListenDuration = 10000;
+            let hasDetectedInitialSound = false;
+            let silenceCounter = 0;
+
+            function detectSound() {
+                analyser.getByteFrequencyData(dataArray);
+
+                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                const timeElapsed = Date.now() - startTime;
+
+                updateChartData(timeElapsed, average);
+
+                if (!firstSoundDetected && average > threshold) {
+                    if (!hasDetectedInitialSound) {
+                        firstSoundTime = Date.now() - startTime;
+                        hasDetectedInitialSound = true;
+                        addMarkerToChart(firstSoundTime, true);
+                        showStatus('✓ 最初の音を検出しました。返ってきた音をお待ちください...', 'detecting');
+                        firstSoundDetected = true;
+                    }
+                    silenceCounter = 0;
+                } else if (firstSoundDetected && average > threshold && firstSoundTime !== null) {
+                    echoPeakTime = Date.now() - startTime;
+                    addMarkerToChart(echoPeakTime, false);
+                    detectEcho(distance, firstSoundTime, echoPeakTime);
+                    return;
+                } else if (firstSoundDetected) {
+                    silenceCounter++;
+                }
+
+                const elapsed = Date.now() - startTime;
+                if (elapsed < maxListenDuration && silenceCounter < 300) {
+                    requestAnimationFrame(detectSound);
+                } else {
+                    showStatus('タイムアウト: 返ってきた音が検出できませんでした', 'error');
+                    startBtn.disabled = false;
+                    indicator.classList.remove('active');
+                }
+            }
+
+            detectSound();
+        }
+
+        function detectEcho(distance, firstTime, echoTime) {
+            const roundTripTime = (echoTime - firstTime) / 1000;
+            
+            if (roundTripTime <= 0.01) {
+                showStatus('エラー: 検出時間が短すぎます。別の試行をしてください', 'error');
+                startBtn.disabled = false;
+                indicator.classList.remove('active');
+                return;
+            }
+
+            const calculatedSpeed = (distance * 2) / roundTripTime;
+            const theoreticalSpeed = 343;
+            const errorPercent = Math.abs(calculatedSpeed - theoreticalSpeed) / theoreticalSpeed * 100;
+
+            displayResults(firstTime, echoTime, roundTripTime, calculatedSpeed, errorPercent);
+            showStatus('✓ 計測完了', 'success');
+            indicator.classList.remove('active');
+            startBtn.disabled = false;
+            info.style.display = 'block';
+        }
+
+        function displayResults(firstTime, echoTime, roundTripTime, speed, errorPercent) {
+            document.getElementById('roundTripTime').textContent = roundTripTime.toFixed(3);
+            document.getElementById('firstSoundTime').textContent = (firstTime / 1000).toFixed(3) + ' 秒';
+            document.getElementById('echoSoundTime').textContent = (echoTime / 1000).toFixed(3) + ' 秒';
+            document.getElementById('soundSpeed').textContent = Math.round(speed);
+            document.getElementById('difference').textContent = errorPercent.toFixed(1) + '%';
+
+            results.classList.add('show');
+        }
+
+        function showStatus(message, type) {
+            statusText.textContent = message;
+            status.className = 'status ' + type;
+        }
+
+        function resetMeasurement() {
+            firstSoundDetected = false;
+            firstSoundTime = null;
+            echoPeakTime = null;
+            chartData = [];
+            results.classList.remove('show');
+            info.style.display = 'none';
+            indicator.classList.remove('active');
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+            showStatus('準備完了 - 壁までの距離を入力して測定開始してください', 'ready');
+            startBtn.disabled = false;
+        }
+    </script>
+</body>
+</html>
